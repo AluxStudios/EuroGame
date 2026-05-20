@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>🇪🇺 Europa Language Game</title>
+
+<style>
+body{
+ margin:0;
+ overflow:hidden;
+ font-family:Arial,sans-serif;
+ background:black;
+ color:white;
+}
+
+canvas{
+ position:fixed;
+ top:0;
+ left:0;
+ width:100vw;
+ height:100vh;
+ display:block;
+}
+
+#ui{
+ position:absolute;
+ top:20px;
+ left:20px;
+ width:330px;
+ background:rgba(0,51,153,0.85);
+ padding:15px;
+ border-radius:12px;
+ border:2px solid #FFCC00;
+ z-index:10;
+}
+
+h3{margin-top:0;text-align:center;color:#FFCC00;}
+
+#subtitle{
+ text-align:center;
+ font-size:12px;
+ color:white;
+ margin-top:-6px;
+ margin-bottom:10px;
+ opacity:0.9;
+}
+
+#ranking{
+ margin-top:10px;
+ padding:8px;
+ background:rgba(0,0,0,0.3);
+ border-radius:8px;
+ font-size:13px;
+}
+
+button{
+ width:100%;
+ padding:8px;
+ margin-top:10px;
+ border:none;
+ border-radius:6px;
+ font-weight:bold;
+ cursor:pointer;
+ background:#FFCC00;
+ color:#003399;
+}
+
+.option{background:#0052cc;color:white;}
+.correct{background:#1fa81f !important;}
+.wrong{background:#c62828 !important;}
+
+#info{
+ margin-top:8px;
+ padding:6px;
+ background:rgba(0,0,0,0.25);
+ border-radius:6px;
+ display:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+ <div id="menu">
+  <h3>🇪🇺 Juego Europeo</h3>
+  <div id="subtitle">IES LA FRESNEDA</div>
+
+  <input id="nickname" placeholder="Apodo"
+   style="width:100%;padding:5px;border-radius:5px;border:none;">
+
+  <button id="startBtn">Empezar</button>
+
+  <div id="ranking">
+   <b>🏆 Ranking local</b>
+   <div id="rankingList"></div>
+  </div>
+ </div>
+
+ <div id="game" style="display:none">
+  <p><b>Ronda:</b> <span id="round">1</span>/20</p>
+  <p><b>Puntos:</b> <span id="score">0</span></p>
+
+  <h3 id="word"></h3>
+  <div id="options"></div>
+
+  <div id="info"></div>
+  <div id="feedback"></div>
+
+  <button id="continueBtn" style="display:none">Continuar</button>
+ </div>
+
+ <div id="end" style="display:none">
+  <h3>🏁 Fin del juego</h3>
+  <p id="final"></p>
+  <button id="restartBtn">Volver a jugar</button>
+ </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+// ================= UI =================
+const menu=document.getElementById("menu");
+const game=document.getElementById("game");
+const end=document.getElementById("end");
+
+const startBtn=document.getElementById("startBtn");
+const continueBtn=document.getElementById("continueBtn");
+const restartBtn=document.getElementById("restartBtn");
+
+const nicknameInput=document.getElementById("nickname");
+const scoreSpan=document.getElementById("score");
+const roundSpan=document.getElementById("round");
+const word=document.getElementById("word");
+const options=document.getElementById("options");
+const feedback=document.getElementById("feedback");
+const finalText=document.getElementById("final");
+const info=document.getElementById("info");
+const rankingList=document.getElementById("rankingList");
+
+// ================= DATA (EUROPA AMPLIADO) =================
+const data=[
+ // Saludos
+ {word:"Hello",lang:"Inglés",country:"Reino Unido",meaning:"Hola"},
+ {word:"Bonjour",lang:"Francés",country:"Francia",meaning:"Hola"},
+ {word:"Hallo",lang:"Alemán",country:"Alemania",meaning:"Hola"},
+ {word:"Ciao",lang:"Italiano",country:"Italia",meaning:"Hola / Adiós"},
+ {word:"Hola",lang:"Español",country:"España",meaning:"Hola"},
+ {word:"Olá",lang:"Portugués",country:"Portugal",meaning:"Hola"},
+ {word:"Hej",lang:"Sueco",country:"Suecia",meaning:"Hola"},
+ {word:"Hei",lang:"Noruego",country:"Noruega",meaning:"Hola"},
+
+ // Sí / No
+ {word:"Yes",lang:"Inglés",country:"Reino Unido",meaning:"Sí"},
+ {word:"No",lang:"Inglés",country:"Reino Unido",meaning:"No"},
+ {word:"Oui",lang:"Francés",country:"Francia",meaning:"Sí"},
+ {word:"Non",lang:"Francés",country:"Francia",meaning:"No"},
+ {word:"Ja",lang:"Alemán",country:"Alemania",meaning:"Sí"},
+ {word:"Nein",lang:"Alemán",country:"Alemania",meaning:"No"},
+ {word:"Sí",lang:"Español",country:"España",meaning:"Sí"},
+ {word:"No",lang:"Español",country:"España",meaning:"No"},
+
+ // Comida
+ {word:"Bread",lang:"Inglés",country:"Reino Unido",meaning:"Pan"},
+ {word:"Pain",lang:"Francés",country:"Francia",meaning:"Pan"},
+ {word:"Brot",lang:"Alemán",country:"Alemania",meaning:"Pan"},
+ {word:"Pane",lang:"Italiano",country:"Italia",meaning:"Pan"},
+ {word:"Milk",lang:"Inglés",country:"Reino Unido",meaning:"Leche"},
+ {word:"Lait",lang:"Francés",country:"Francia",meaning:"Leche"},
+ {word:"Milch",lang:"Alemán",country:"Alemania",meaning:"Leche"},
+ {word:"Latte",lang:"Italiano",country:"Italia",meaning:"Leche"},
+ {word:"Water",lang:"Inglés",country:"Reino Unido",meaning:"Agua"},
+ {word:"Eau",lang:"Francés",country:"Francia",meaning:"Agua"},
+ {word:"Wasser",lang:"Alemán",country:"Alemania",meaning:"Agua"},
+ {word:"Acqua",lang:"Italiano",country:"Italia",meaning:"Agua"},
+
+ // Básicos
+ {word:"House",lang:"Inglés",country:"Reino Unido",meaning:"Casa"},
+ {word:"Maison",lang:"Francés",country:"Francia",meaning:"Casa"},
+ {word:"Haus",lang:"Alemán",country:"Alemania",meaning:"Casa"},
+ {word:"Casa",lang:"Italiano",country:"Italia",meaning:"Casa"},
+ {word:"School",lang:"Inglés",country:"Reino Unido",meaning:"Escuela"},
+ {word:"École",lang:"Francés",country:"Francia",meaning:"Escuela"},
+ {word:"Schule",lang:"Alemán",country:"Alemania",meaning:"Escuela"},
+ {word:"Scuola",lang:"Italiano",country:"Italia",meaning:"Escuela"}
+];
+
+// ================= STATE =================
+let round=0;
+let score=0;
+let nickname="";
+let pool=[];
+
+// ================= UTILS =================
+function shuffle(arr){
+ for(let i=arr.length-1;i>0;i--){
+  const j=Math.floor(Math.random()*(i+1));
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+ }
+}
+
+// ================= RANKING =================
+function saveScore(name,score){
+ let r=JSON.parse(localStorage.getItem("rank")||"[]");
+ r.push({name,score});
+ r.sort((a,b)=>b.score-a.score);
+ r=r.slice(0,5);
+ localStorage.setItem("rank",JSON.stringify(r));
+ renderRanking();
+}
+
+function renderRanking(){
+ let r=JSON.parse(localStorage.getItem("rank")||"[]");
+ rankingList.innerHTML=r.length?
+ r.map((x,i)=>`#${i+1} ${x.name}: ${x.score}`).join("<br>")
+ :"Sin partidas aún";
+}
+
+// ================= GAME =================
+startBtn.onclick=startGame;
+continueBtn.onclick=nextRound;
+restartBtn.onclick=resetGame;
+
+function startGame(){
+ nickname=nicknameInput.value||"Jugador";
+ menu.style.display="none";
+ game.style.display="block";
+ round=0;
+ score=0;
+ scoreSpan.textContent=0;
+ pool=[...data];
+ shuffle(pool);
+ nextRound();
+}
+
+function nextRound(){
+ feedback.innerHTML="";
+ info.style.display="none";
+ continueBtn.style.display="none";
+
+ if(round>=20 || pool.length===0){
+  endGame();
+  return;
+ }
+
+ round++;
+ roundSpan.textContent=round;
+
+ const currentItem=pool.pop();
+ word.textContent=currentItem.word;
+
+ let opts=[currentItem.lang];
+ while(opts.length<3){
+  const r=data[Math.floor(Math.random()*data.length)].lang;
+  if(!opts.includes(r)) opts.push(r);
+ }
+
+ options.innerHTML="";
+ opts.sort(()=>Math.random()-0.5);
+
+ opts.forEach(o=>{
+  const b=document.createElement("button");
+  b.textContent=o;
+  b.className="option";
+  b.onclick=()=>{
+   document.querySelectorAll(".option").forEach(x=>x.disabled=true);
+   document.querySelectorAll(".option").forEach(x=>{
+    if(x.textContent===currentItem.lang) x.classList.add("correct");
+   });
+
+   if(o===currentItem.lang){
+    score+=100;
+    feedback.innerHTML="✅ Correcto";
+    b.classList.add("correct");
+   }else{
+    score-=50;
+    feedback.innerHTML="❌ Incorrecto";
+    b.classList.add("wrong");
+   }
+
+   info.style.display="block";
+   info.innerHTML=`🌍 País: ${currentItem.country}<br>💬 Significado: ${currentItem.meaning}`;
+   scoreSpan.textContent=score;
+   continueBtn.style.display="block";
+  };
+  options.appendChild(b);
+ });
+}
+
+function endGame(){
+ saveScore(nickname,score);
+ game.style.display="none";
+ end.style.display="block";
+ finalText.textContent=`${nickname} – ${score}`;
+}
+
+function resetGame(){
+ end.style.display="none";
+ menu.style.display="block";
+ renderRanking();
+}
+
+renderRanking();
+
+// ================= THREE.JS =================
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+camera.position.z=3;
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setClearColor(0x000000,1);
+document.body.appendChild(renderer.domElement);
+
+const loader=new THREE.TextureLoader();
+
+const earth=new THREE.Mesh(
+ new THREE.SphereGeometry(1,64,64),
+ new THREE.MeshPhongMaterial({
+  map:loader.load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg")
+ })
+);
+scene.add(earth);
+
+const atmosphere=new THREE.Mesh(
+ new THREE.SphereGeometry(1.03,64,64),
+ new THREE.MeshBasicMaterial({
+  color:0x66ccff,
+  transparent:true,
+  opacity:0.12
+ })
+);
+scene.add(atmosphere);
+
+const clouds=new THREE.Mesh(
+ new THREE.SphereGeometry(1.01,64,64),
+ new THREE.MeshPhongMaterial({
+  map:loader.load("https://threejs.org/examples/textures/planets/earth_clouds_1024.png"),
+  transparent:true
+ })
+);
+scene.add(clouds);
+
+const moon=new THREE.Mesh(
+ new THREE.SphereGeometry(0.27,48,48),
+ new THREE.MeshPhongMaterial({
+  map:loader.load("https://threejs.org/examples/textures/planets/moon_1024.jpg")
+ })
+);
+scene.add(moon);
+
+scene.add(new THREE.AmbientLight(0x444444));
+const sun=new THREE.DirectionalLight(0xffffff,1);
+sun.position.set(5,3,5);
+scene.add(sun);
+
+let angle=0;
+
+function resize(){
+ const w=innerWidth,h=innerHeight;
+ camera.aspect=w/h;
+ camera.updateProjectionMatrix();
+ renderer.setSize(w,h);
+}
+window.addEventListener("resize",resize);
+window.addEventListener("fullscreenchange",()=>setTimeout(resize,50));
+
+function animate(){
+ requestAnimationFrame(animate);
+ earth.rotation.y+=0.0005;
+ clouds.rotation.y+=0.0008;
+ atmosphere.rotation.y+=0.0005;
+ angle+=0.0012;
+ moon.position.set(Math.cos(angle)*2,0.5,Math.sin(angle)*2);
+ moon.rotation.y+=0.002;
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+
+</body>
+</html>
